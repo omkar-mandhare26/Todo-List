@@ -1,61 +1,104 @@
 import express from "express";
 import bodyParser from "body-parser";
+import mysql from "mysql2";
 
 const app = express();
-
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-function getUniqueId() {
-    return Math.floor(Math.random() * 10000);
-}
+const conn = mysql.createConnection({
+    host: "localhost",
+    user: "root",
+    password: "mysql",
+    database: "todolist_db"
+});
 
-let todos = [{
-    id: 4148,
-    name: "Code",
-    description: "Code for an hour",
-    isCompleted: false
-}];
+conn.connect(err => {
+    if (err) throw err;
+    console.log("Connected to DB Successfully!");
+});
+
+app.get("/todos", (req, res) => {
+    conn.query(`SELECT * FROM todos;`, (err, data) => {
+        if (err) {
+            console.log("Error Retriving in Todo List");
+            throw err;
+            res.status(404).json({ msg: "Error" });
+        }
+        else {
+            console.log("Retrived all Task successfully");
+            res.json(data);
+        }
+    });
+});
 
 app.post("/add", (req, res) => {
     let id = getUniqueId();
     let args = req.body;
-    const todo = { id, name: args.name, description: args.desc, isCompleted: false };
-    console.log(args);
-    res.json(todo);
-});
-
-
-app.get("/todos", (req, res) => {
-    res.json(todos);
+    let insertQuery = `INSERT INTO todos VALUES(${id},"${args.name}","${args.desc}","false");`;
+    conn.query(insertQuery, (err) => {
+        if (err) {
+            throw err;
+            res.status(404).json({ msg: "Error while adding todo" });
+        }
+        else {
+            console.log("Task added successfully!");
+            res.json({ msg: "Added Task successfully" });
+        }
+    })
 });
 
 app.get("/todos/:todoId", (req, res) => {
     let id = req.params.todoId;
-    let todo;
-    todos.forEach((e) => {
-        if (e.id == id) todo = e;
+    let selectQuery = `SELECT * FROM todos where id=${id};`;
+    conn.query(selectQuery, (err, data) => {
+        if (err) {
+            res.status(404).json({ msg: "Error while getting the task" });
+            throw err;
+        }
+        else {
+            console.log("Got the task sucessfully");
+            res.json(data);
+        }
     });
-    if (todo) res.json(todo);
-    else res.status(404).json({ msg: "Not Found" });
 });
 
 app.put("/todos/:todoId", (req, res) => {
     let id = req.params.todoId;
-    let isComplete = req.query.isComplete;
-    todos.forEach((e) => {
-        if (e.id == id) e.isCompleted = isComplete;
+    let updateQuery = `UPDATE todos
+                    SET iscomplete = "true"
+                    WHERE id=${id};`;
+    conn.query(updateQuery, err => {
+        if (err) {
+            console.log("Error Updating task");
+            res.status(404).json({ msg: "Error while updating task" });
+            throw err;
+        }
+        else {
+            console.log("Updated task successfully!");
+            res.json({ msg: "Updated Task successfully" });
+        }
     });
-    res.json(todos);
 });
 
 app.delete("/todos/:todoId", (req, res) => {
     let todoId = req.params.todoId;
-    if (todos.length = 0) res.status(404).json({ msg: "Todo is Empty" });
-    else {
-        todos.filter(e => e.id == todoId);
-    }
-    res.json(todos);
+    let deleteQuery = `DELETE FROM todos where id = ${todoId};`;
+    conn.query(deleteQuery, err => {
+        if (err) {
+            console.log("Error Deleting task");
+            res.status(404).json({ msg: "Error while deleting task" });
+            throw err;
+        }
+        else {
+            console.log("Deleted task successfully");
+            res.json({ msg: "Deleted task successfully" });
+        }
+    });
 });
 
-app.listen(3000, () => { console.log("Server running on 3000"); });
+app.listen(3000, () => { console.log("Server running on Port 3000"); });
+
+function getUniqueId() {
+    return Math.floor(Math.random() * 10000);
+}
